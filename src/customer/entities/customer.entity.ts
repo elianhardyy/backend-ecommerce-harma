@@ -12,10 +12,10 @@ export class Customer {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ length: 15 })
+  @Column({ length: 15, nullable: true })
   phone: string;
 
-  @Column({ length: 225 })
+  @Column({ length: 225, nullable: true })
   address: string;
 
   @Column({ length: 225, nullable: true })

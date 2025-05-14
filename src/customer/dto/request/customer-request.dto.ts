@@ -23,4 +23,12 @@ export class CustomerRequest {
     customer.address = request.address;
     return customer;
   }
+  static toCustomerUpdateEntity(
+    customer: Customer,
+    request: CustomerRequestDto,
+  ): Customer {
+    customer.phone = request.phone ?? customer.phone;
+    customer.address = request.address ?? customer.address;
+    return customer;
+  }
 }

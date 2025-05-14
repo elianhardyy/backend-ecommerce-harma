@@ -13,7 +13,6 @@ import {
   CustomerResponse,
   CustomerResponseDto,
 } from './dto/response/customer-response.dto';
-import { User } from 'src/user/entities/user.entity';
 import { AwsS3Service } from 'src/aws-s3/aws-s3.service';
 
 @Injectable()
@@ -21,24 +20,36 @@ export class CustomerService {
   constructor(
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
     private readonly awsS3Service: AwsS3Service,
   ) {}
   async create(
     request: CustomerRequestDto,
     currentUser: any,
   ): Promise<CustomerResponseDto> {
+    let customer = await this.customerRepository.findOne({
+      where: { user: { id: currentUser.id } },
+    });
     try {
-      const user = await this.userRepository.findOne({
-        where: { id: currentUser.id },
+      const updatedCustomer = CustomerRequest.toCustomerUpdateEntity(
+        customer,
+        request,
+      );
+      // if (customer) {
+      // } else {
+      //   customer = this.customerRepository.create({
+      //     phone: request.phone,
+      //     address: request.address,
+      //     user: { id: currentUser.id },
+      //   });
+      // }
+      const savedCustomer = await this.customerRepository.save(updatedCustomer);
+      const finalCustomer = await this.customerRepository.findOne({
+        where: { id: savedCustomer.id },
+        relations: { user: true },
       });
-      const customer = CustomerRequest.toCustomerEntity(request);
-      customer.user = user;
-      const savedCustomer = await this.customerRepository.save(customer);
-      return CustomerResponse.toCustomerResponse(savedCustomer);
+      return CustomerResponse.toCustomerResponse(finalCustomer);
     } catch (error) {
-      throw new Error('Error creating customer');
+      throw new Error('error update customer');
     }
   }
 

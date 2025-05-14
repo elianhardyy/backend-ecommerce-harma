@@ -37,10 +37,10 @@ import { UserRole } from 'src/user/enums/user.role';
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
-  @Post()
+  @Put()
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
-  @Roles(UserRole.ADMIN)
+  //@Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create new customer' })
   @ApiResponse({
     status: HttpStatus.CREATED,
