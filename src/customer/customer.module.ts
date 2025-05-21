@@ -5,12 +5,13 @@ import { UserModule } from 'src/user/user.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Customer } from './entities/customer.entity';
 import { AwsS3Module } from 'src/aws-s3/aws-s3.module';
+import { User } from 'src/user/entities/user.entity';
 
 @Module({
   imports: [
-    forwardRef(() => UserModule),
+    //forwardRef(() => UserModule),
     AwsS3Module,
-    TypeOrmModule.forFeature([Customer]),
+    TypeOrmModule.forFeature([Customer, User]),
   ],
   controllers: [CustomerController],
   providers: [CustomerService, TypeOrmModule],

@@ -30,15 +30,16 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CommonResponseInterceptor } from 'src/interceptor/common-response.interceptor';
 import { Roles } from 'src/decorator/roles.decorator';
 import { UserRole } from 'src/user/enums/user.role';
+import { JwtClaims } from 'src/guard/jwt.claims';
 
 // @ApiTags('customer')
 @Controller('customer')
+@UseGuards(JwtAuthGuard)
 //@UseInterceptors(ClassSerializerInterceptor, CommonResponseInterceptor)
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
   @Put()
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   //@Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create new customer' })
@@ -47,7 +48,10 @@ export class CustomerController {
     description: 'Customer created successfully',
   })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
-  async create(@Body() request: CustomerRequestDto, @CurrentUser() user: any) {
+  async create(
+    @Body() request: CustomerRequestDto,
+    @CurrentUser() user: JwtClaims,
+  ) {
     try {
       return await this.customerService.create(request, user);
     } catch (error) {
@@ -56,7 +60,6 @@ export class CustomerController {
   }
 
   @Put('/profile-picture')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Update customer profile picture' })
@@ -88,7 +91,6 @@ export class CustomerController {
   }
 
   @Get('/profile')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Retrieve customer' })
   @ApiResponse({

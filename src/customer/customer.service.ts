@@ -14,6 +14,7 @@ import {
   CustomerResponseDto,
 } from './dto/response/customer-response.dto';
 import { AwsS3Service } from 'src/aws-s3/aws-s3.service';
+import { JwtClaims } from 'src/guard/jwt.claims';
 
 @Injectable()
 export class CustomerService {
@@ -24,7 +25,7 @@ export class CustomerService {
   ) {}
   async create(
     request: CustomerRequestDto,
-    currentUser: any,
+    currentUser: JwtClaims,
   ): Promise<CustomerResponseDto> {
     let customer = await this.customerRepository.findOne({
       where: { user: { id: currentUser.id } },
