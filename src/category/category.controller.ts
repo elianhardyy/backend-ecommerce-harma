@@ -24,12 +24,11 @@ import { CategoryRequestDto } from './dto/request/category-request.dto';
 
 @ApiTags('category')
 @Controller('category')
-@UseInterceptors(ClassSerializerInterceptor, CommonResponseInterceptor)
+@UseGuards(JwtAuthGuard)
 export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create new category' })
   @ApiResponse({
@@ -46,7 +45,6 @@ export class CategoryController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Retrieve all categories' })
   @ApiResponse({
@@ -58,12 +56,11 @@ export class CategoryController {
     try {
       return await this.categoryService.findAll();
     } catch (error) {
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Retrieve single category' })
   @ApiResponse({
@@ -83,7 +80,6 @@ export class CategoryController {
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update single category' })
   @ApiResponse({
@@ -100,7 +96,6 @@ export class CategoryController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete single category' })
   @ApiResponse({

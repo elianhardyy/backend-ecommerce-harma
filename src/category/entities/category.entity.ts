@@ -3,6 +3,8 @@ import {
   Column,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -15,6 +17,16 @@ export class Category {
   @Column({ length: 100, unique: true })
   name: string;
 
+  @ManyToOne(() => Category, (category) => category.children, {
+    nullable: true,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn()
+  parent?: Category;
+
+  @OneToMany(() => Category, (category) => category.parent)
+  children?: Category[];
+
   @Column({ length: 100 })
   description: string;
 
@@ -22,8 +34,8 @@ export class Category {
     eager: true,
     cascade: true,
   })
+  products: Product[];
+
   @DeleteDateColumn()
   deletedAt: Date;
-
-  products: Product[];
 }
