@@ -14,6 +14,7 @@ import { UserRole } from '../enums/user.role';
 import { Cart } from 'src/cart/entities/cart.entity';
 import * as bcrypt from 'bcryptjs';
 import { Customer } from 'src/customer/entities/customer.entity';
+import { Transaction } from 'src/transaction/entities/transaction.entity';
 
 @Entity('users')
 export class User {
@@ -46,6 +47,9 @@ export class User {
 
   @OneToMany(() => Cart, (cart) => cart.user, { eager: true, cascade: true })
   carts: Cart[];
+
+  @OneToMany(() => Transaction, (transaction) => transaction.user)
+  transactions: Transaction[];
 
   @CreateDateColumn()
   createdAt: Date;

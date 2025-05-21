@@ -20,12 +20,15 @@ import { JwtService } from '@nestjs/jwt';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { formatDateFromInput } from 'src/utils/DateUtil';
+import { Customer } from 'src/customer/entities/customer.entity';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Customer)
+    private readonly customerRepository: Repository<Customer>,
     private jwtService: JwtService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
@@ -37,8 +40,12 @@ export class UserService {
     try {
       const user = UserRequest.toUserEntity(request);
       user.role = UserRole.CUSTOMER;
-      const createdUser = await this.userRepository.save(user);
-      return UserResponse.toRegisterResponse(createdUser);
+      const savedUser = await this.userRepository.save(user);
+      const newCustomer = this.customerRepository.create({
+        user: savedUser,
+      });
+      await this.customerRepository.save(newCustomer);
+      return UserResponse.toRegisterResponse(savedUser);
     } catch (error) {
       throw new ConflictException('Failed to create user');
     }
@@ -51,8 +58,12 @@ export class UserService {
     try {
       const user = UserRequest.toUserEntity(request);
       user.role = UserRole.ADMIN;
-      const createdUser = await this.userRepository.save(user);
-      return UserResponse.toRegisterResponse(createdUser);
+      const savedUser = await this.userRepository.save(user);
+      const newCustomer = this.customerRepository.create({
+        user: savedUser,
+      });
+      await this.customerRepository.save(newCustomer);
+      return UserResponse.toRegisterResponse(savedUser);
     } catch (error) {
       throw new ConflictException('Failed to create user');
     }
@@ -60,7 +71,7 @@ export class UserService {
 
   async login(request: LoginRequestDto): Promise<LoginResponseDto> {
     const user = await this.userRepository.findOne({
-      where: { username: request.username },
+      where: [{ username: request.username }, { email: request.username }],
     });
     if (!user) throw new ConflictException('Invalid email or password');
     const isValidPassword = await user.comparePassword(request.password);

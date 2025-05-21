@@ -46,6 +46,7 @@ export class UserController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() login: LoginRequestDto) {
+    console.log('ini login: ', login);
     try {
       return await this.userService.login(login);
     } catch (error) {
