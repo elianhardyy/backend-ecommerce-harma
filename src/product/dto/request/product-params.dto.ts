@@ -1,5 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  IsNumber,
+} from 'class-validator';
 
 export class ProductParamsDto {
   @IsOptional()
@@ -7,8 +14,24 @@ export class ProductParamsDto {
   name?: string;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minPrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  maxPrice?: number;
+
+  @IsOptional()
   @IsString()
   categoryName?: string;
+
+  @IsOptional()
+  @IsString()
+  subCategoryName?: string;
 
   @IsOptional()
   @Type(() => Number)
@@ -21,7 +44,7 @@ export class ProductParamsDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  limit?: number = 10;
+  size?: number = 10;
 
   @IsOptional()
   @IsString()

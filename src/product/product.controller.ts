@@ -17,6 +17,7 @@ import {
   ClassSerializerInterceptor,
   HttpException,
   Query,
+  Put,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -32,11 +33,11 @@ import { UserRole } from 'src/user/enums/user.role';
 
 @ApiTags('product')
 @Controller('product')
+@UseGuards(JwtAuthGuard)
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @Roles(UserRole.ADMIN)
   @UseInterceptors(FileInterceptor('file'))
@@ -69,8 +70,7 @@ export class ProductController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.CREATED)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all products with filtering and pagination' })
   @ApiQuery({
     name: 'name',
@@ -123,16 +123,58 @@ export class ProductController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.productService.findOne(+id);
+    return this.productService.findOne(id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateProductDto: ProductRequestDto) {
-    return this.productService.update(+id, updateProductDto);
+  @Put(':id')
+  @HttpCode(HttpStatus.CREATED)
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Update product' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Product updated successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Failed to update product',
+  })
+  async update(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: '.(png|jpg|jpeg)' }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @Param('id') id: string,
+    @Body() request: ProductRequestDto,
+  ) {
+    try {
+      return await this.productService.update(id, request, file);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.productService.remove(+id);
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'delete product' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Product deleted successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Failed to delete product',
+  })
+  async remove(@Param('id') id: string) {
+    try {
+      return await this.productService.remove(id);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
   }
 }

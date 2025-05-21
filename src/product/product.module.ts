@@ -6,11 +6,12 @@ import { Product } from './entities/product.entity';
 import { CategoryModule } from 'src/category/category.module';
 import { ProductDetail } from './entities/product.detail.entity';
 import { AwsS3Module } from 'src/aws-s3/aws-s3.module';
+import { Tags } from './entities/tags.entity';
 
 @Module({
   imports: [
     AwsS3Module,
-    TypeOrmModule.forFeature([Product, ProductDetail]),
+    TypeOrmModule.forFeature([Product, ProductDetail, Tags]),
     CategoryModule,
   ],
   controllers: [ProductController],

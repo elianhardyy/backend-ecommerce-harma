@@ -1,9 +1,7 @@
-import {
-  CategoryResponse,
-  CategoryResponseDto,
-} from 'src/category/dto/response/category-response.dto';
+import { CategoryResponseDto } from 'src/category/dto/response/category-response.dto';
 import { ProductDetail } from 'src/product/entities/product.detail.entity';
 import { Product } from 'src/product/entities/product.entity';
+import { CategoryResponse } from 'src/category/dto/response/category-response.dto';
 
 export class ProductResponseDto {
   id: string;
@@ -11,6 +9,7 @@ export class ProductResponseDto {
   description: string;
   imageUrl: string;
   category: CategoryResponseDto;
+  subcategory?: CategoryResponseDto | null;
   productDetail: ProductDetailResponseDto[];
 }
 
@@ -40,14 +39,30 @@ export class ProductResponse {
     productResponse.id = product.id;
     productResponse.name = product.name;
     productResponse.description = product.description;
-    productResponse.imageUrl = productResponse.imageUrl;
-    productResponse.productDetail = product.productDetail.map((detail) =>
-      ProductDetailResponse.toProductDetailResponse(detail),
-    );
-    const categoryResponse = CategoryResponse.toCategoryResponse(
-      product.category,
-    );
-    productResponse.category = categoryResponse;
+    productResponse.imageUrl = product.imageUrl;
+
+    if (product.productDetail) {
+      productResponse.productDetail = product.productDetail.map((detail) =>
+        ProductDetailResponse.toProductDetailResponse(detail),
+      );
+    } else {
+      productResponse.productDetail = [];
+    }
+
+    if (product.category) {
+      productResponse.category = CategoryResponse.toCategoryResponse(
+        product.category,
+      );
+    }
+
+    if (product.subcategory) {
+      productResponse.subcategory = CategoryResponse.toCategoryResponse(
+        product.subcategory,
+      );
+    } else {
+      productResponse.subcategory = null;
+    }
+
     return productResponse;
   }
 }

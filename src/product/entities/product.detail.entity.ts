@@ -1,6 +1,7 @@
 import {
   Check,
   Column,
+  DeleteDateColumn,
   Entity,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -25,6 +26,9 @@ export class ProductDetail {
 
   @ManyToOne(() => Product, (product) => product.productDetail)
   product: Product;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 
   isExpired(): boolean {
     return new Date() > this.expiredAt;

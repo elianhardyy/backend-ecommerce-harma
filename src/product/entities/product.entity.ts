@@ -1,10 +1,12 @@
 import { Category } from 'src/category/entities/category.entity';
 import {
-  Check,
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -12,6 +14,8 @@ import {
 } from 'typeorm';
 import { ProductDetail } from './product.detail.entity';
 import { Cart } from 'src/cart/entities/cart.entity';
+import { TransactionDetail } from 'src/transaction/entities/transaction.detail.entity';
+import { Tags } from './tags.entity';
 
 @Entity('products')
 export class Product {
@@ -27,8 +31,19 @@ export class Product {
   @Column({ nullable: true })
   imageUrl: string;
 
-  @ManyToOne(() => Category, (category) => category.products)
+  @ManyToOne(() => Category, (category) => category.products, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'categoryId' })
   category: Category;
+
+  @ManyToOne(() => Category, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'subcategoryId' })
+  subcategory: Category | null;
 
   @OneToMany(() => ProductDetail, (productDetail) => productDetail.product, {
     eager: true,
@@ -36,8 +51,18 @@ export class Product {
   })
   productDetail: ProductDetail[];
 
-  @OneToMany(() => Cart, (cart) => cart.product, { eager: true, cascade: true })
+  @OneToMany(() => Cart, (cart) => cart.product)
   carts: Cart[];
+
+  @OneToMany(
+    () => TransactionDetail,
+    (transactionDetail) => transactionDetail.product,
+  )
+  transactionDetails: TransactionDetail[];
+
+  @ManyToMany(() => Tags, (tags) => tags.products, { cascade: true })
+  @JoinTable()
+  tags: Tags[];
 
   @CreateDateColumn()
   createdAt: Date;
