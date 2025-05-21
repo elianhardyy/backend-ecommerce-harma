@@ -15,6 +15,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { CommonResponseInterceptor } from './interceptor/common-response.interceptor';
 import { HttpExceptionFilter } from './api/response/http-exception.filter';
+import { TransactionModule } from './transaction/transaction.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { HttpExceptionFilter } from './api/response/http-exception.filter';
     RedisModule,
     CustomerModule,
     AwsS3Module,
+    TransactionModule,
   ],
   controllers: [AppController],
   providers: [
