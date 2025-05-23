@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Product } from './product.entity';
+import { Category } from 'src/category/entities/category.entity';
 
 @Entity('tags')
 export class Tags {
@@ -27,4 +28,7 @@ export class Tags {
 
   @ManyToMany(() => Product, (product) => product.tags)
   products: Product[];
+
+  @ManyToMany(() => Category, (category) => category.tags)
+  categories: Category[];
 }

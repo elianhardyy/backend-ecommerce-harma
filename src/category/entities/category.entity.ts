@@ -1,9 +1,12 @@
 import { Product } from 'src/product/entities/product.entity';
+import { Tags } from 'src/product/entities/tags.entity';
 import {
   Column,
   DeleteDateColumn,
   Entity,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -35,6 +38,10 @@ export class Category {
     cascade: true,
   })
   products: Product[];
+
+  @ManyToMany(() => Tags, (tags) => tags.categories, { cascade: true })
+  @JoinTable()
+  tags: Tags[];
 
   @DeleteDateColumn()
   deletedAt: Date;

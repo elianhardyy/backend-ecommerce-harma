@@ -34,6 +34,10 @@ export class ProductParamsDto {
   subCategoryName?: string;
 
   @IsOptional()
+  @IsString()
+  tags?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -48,7 +52,7 @@ export class ProductParamsDto {
 
   @IsOptional()
   @IsString()
-  sortBy?: string = 'id';
+  sortBy?: string | 'id' | 'createdAt' = 'createdAt';
 
   @IsOptional()
   @IsString()

@@ -2,6 +2,7 @@ import { CategoryResponseDto } from 'src/category/dto/response/category-response
 import { ProductDetail } from 'src/product/entities/product.detail.entity';
 import { Product } from 'src/product/entities/product.entity';
 import { CategoryResponse } from 'src/category/dto/response/category-response.dto';
+import { Tags } from 'src/product/entities/tags.entity';
 
 export class ProductResponseDto {
   id: string;
@@ -11,6 +12,7 @@ export class ProductResponseDto {
   category: CategoryResponseDto;
   subcategory?: CategoryResponseDto | null;
   productDetail: ProductDetailResponseDto[];
+  tags: TagsResponseDto[];
 }
 
 export class ProductDetailResponseDto {
@@ -18,6 +20,20 @@ export class ProductDetailResponseDto {
   price: number;
   stock: number;
   expiredAt: Date;
+}
+
+export class TagsResponseDto {
+  id: string;
+  name: string;
+}
+
+export class TagsResponse {
+  static toTagsResponse(tags: Tags): TagsResponseDto {
+    const tagsResponse = new TagsResponseDto();
+    tagsResponse.id = tags.id;
+    tagsResponse.name = tags.name;
+    return tagsResponse;
+  }
 }
 
 export class ProductDetailResponse {
@@ -47,6 +63,14 @@ export class ProductResponse {
       );
     } else {
       productResponse.productDetail = [];
+    }
+
+    if (product.tags) {
+      productResponse.tags = product.tags.map((tag) =>
+        TagsResponse.toTagsResponse(tag),
+      );
+    } else {
+      productResponse.tags = [];
     }
 
     if (product.category) {

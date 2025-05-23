@@ -1,5 +1,5 @@
 import {
-  BadRequestException, // Added
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
@@ -8,7 +8,8 @@ import {
 } from '@nestjs/common';
 import {
   ProductRequestDto,
-  ProductRequestMapper,
+  ProductRequestMapper, // Will be used carefully or parts replaced by service logic
+  ProductDetailRequestMapper, // For productDetail mapping
 } from './dto/request/product-request.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from './entities/product.entity';
@@ -21,7 +22,9 @@ import { AwsS3Service } from 'src/aws-s3/aws-s3.service';
 import { PagingResponse } from 'src/api/response/paging.response';
 import { ProductParamsDto } from './dto/request/product-params.dto';
 import { Category } from 'src/category/entities/category.entity';
-import { CategoryService } from 'src/category/category.service'; // Import CategoryService
+import { CategoryService } from 'src/category/category.service';
+import { ProductDetail } from './entities/product.detail.entity';
+import { Tags } from './entities/tags.entity';
 
 @Injectable()
 export class ProductService {
@@ -30,8 +33,10 @@ export class ProductService {
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Category)
-    private readonly categoryRepository: Repository<Category>, // Still useful for general ID validation
-    private readonly categoryService: CategoryService, // Inject CategoryService
+    private readonly categoryRepository: Repository<Category>,
+    @InjectRepository(Tags)
+    private readonly tagsRepository: Repository<Tags>,
+    private readonly categoryService: CategoryService,
     private readonly awsS3Service: AwsS3Service,
   ) {}
 
@@ -66,7 +71,6 @@ export class ProductService {
     subcategoryId?: string | null,
   ): Promise<void> {
     if (categoryId && subcategoryId) {
-      // Only validate if both are present
       const isCorrectHierarchy = await this.categoryService.isDirectChild(
         categoryId,
         subcategoryId,
@@ -94,6 +98,18 @@ export class ProductService {
 
     const productEntity = ProductRequestMapper.dtoToEntity(request);
 
+    if (request.tags && request.tags.length > 0) {
+      const resolvedTags: Tags[] = [];
+      for (const tagDto of request.tags) {
+        let tag = await this.tagsRepository.findOneBy({ name: tagDto.name });
+        if (!tag) {
+          tag = this.tagsRepository.create({ name: tagDto.name });
+        }
+        resolvedTags.push(tag);
+      }
+      productEntity.tags = resolvedTags;
+    }
+
     if (file) {
       const fileUrl = await this.awsS3Service.uploadFile(file, 'product');
       productEntity.imageUrl = fileUrl;
@@ -103,6 +119,53 @@ export class ProductService {
 
     try {
       const createdProduct = await this.productRepository.save(productEntity);
+
+      if (createdProduct.tags && createdProduct.tags.length > 0) {
+        const productTags = createdProduct.tags;
+
+        if (request.categoryId) {
+          const category = await this.categoryRepository.findOne({
+            where: { id: request.categoryId },
+            relations: ['tags'],
+          });
+          if (category) {
+            const categoryTagIds = new Set(category.tags.map((t) => t.id));
+            let categoryTagsUpdated = false;
+            for (const productTag of productTags) {
+              if (productTag.id && !categoryTagIds.has(productTag.id)) {
+                category.tags.push(productTag);
+                categoryTagsUpdated = true;
+              }
+            }
+            if (categoryTagsUpdated) {
+              await this.categoryRepository.save(category);
+            }
+          }
+        }
+
+        if (request.subcategoryId) {
+          const subcategory = await this.categoryRepository.findOne({
+            where: { id: request.subcategoryId },
+            relations: ['tags'],
+          });
+          if (subcategory) {
+            const subCategoryTagIds = new Set(
+              subcategory.tags.map((t) => t.id),
+            );
+            let subCategoryTagsUpdated = false;
+            for (const productTag of productTags) {
+              if (productTag.id && !subCategoryTagIds.has(productTag.id)) {
+                subcategory.tags.push(productTag);
+                subCategoryTagsUpdated = true;
+              }
+            }
+            if (subCategoryTagsUpdated) {
+              await this.categoryRepository.save(subcategory);
+            }
+          }
+        }
+      }
+
       const fullProduct = await this.findProductByIdWithRelations(
         createdProduct.id,
       );
@@ -141,6 +204,7 @@ export class ProductService {
         maxPrice,
         categoryName,
         subCategoryName,
+        tags: tagsParam,
         page = 1,
         size = 10,
         sortBy = 'createdAt',
@@ -155,7 +219,8 @@ export class ProductService {
         .createQueryBuilder('product')
         .leftJoinAndSelect('product.category', 'category')
         .leftJoinAndSelect('product.subcategory', 'subcategory_alias')
-        .leftJoinAndSelect('product.productDetail', 'productDetail');
+        .leftJoinAndSelect('product.productDetail', 'productDetail')
+        .leftJoinAndSelect('product.tags', 'tags');
 
       if (name) {
         queryBuilder.andWhere('product.name LIKE :name', { name: `%${name}%` });
@@ -187,6 +252,16 @@ export class ProductService {
         queryBuilder.andWhere('productDetail.price <= :maxPriceValue', {
           maxPriceValue: parseFloat(maxPrice as any),
         });
+      }
+
+      if (tagsParam) {
+        const tagNames = tagsParam
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter((tag) => tag.length > 0);
+        if (tagNames.length > 0) {
+          queryBuilder.andWhere('tags.name IN (:...tagNames)', { tagNames });
+        }
       }
 
       const total = await queryBuilder.getCount();
@@ -244,37 +319,39 @@ export class ProductService {
     request: ProductRequestDto,
     file?: Express.Multer.File,
   ): Promise<ProductResponseDto> {
-    const product = await this.findProductByIdWithRelations(id);
-    if (!product) {
+    const productToUpdate = await this.findProductByIdWithRelations(id);
+    if (!productToUpdate) {
       throw new NotFoundException(
         `Product with ID "${id}" not found for update.`,
       );
     }
 
-    // Determine effective category and subcategory for validation
-    const effectiveCategoryId = request.categoryId ?? product.category?.id;
-    let effectiveSubcategoryId = product.subcategory?.id; // Default to existing
-    if (request.hasOwnProperty('subcategoryId')) {
-      // If subcategoryId is explicitly in the request payload
+    const effectiveCategoryId =
+      request.categoryId ?? productToUpdate.category?.id;
+    let effectiveSubcategoryId = productToUpdate.subcategory?.id;
+    if (Object.prototype.hasOwnProperty.call(request, 'subcategoryId')) {
       effectiveSubcategoryId = request.subcategoryId;
     }
 
-    // Validate existence of the effective IDs first
-    await this.validateCategoryExistence(
-      effectiveCategoryId,
-      effectiveSubcategoryId,
-    );
-    // Then validate the hierarchy
-    await this.validateCategoryHierarchy(
-      effectiveCategoryId,
-      effectiveSubcategoryId,
-    );
+    if (
+      request.categoryId ||
+      Object.prototype.hasOwnProperty.call(request, 'subcategoryId')
+    ) {
+      await this.validateCategoryExistence(
+        effectiveCategoryId,
+        effectiveSubcategoryId,
+      );
+      await this.validateCategoryHierarchy(
+        effectiveCategoryId,
+        effectiveSubcategoryId,
+      );
+    }
 
-    let fileUrl = product.imageUrl;
+    let fileUrl = productToUpdate.imageUrl;
     if (file) {
-      if (product.imageUrl) {
+      if (productToUpdate.imageUrl) {
         try {
-          await this.awsS3Service.deleteFile(product.imageUrl);
+          await this.awsS3Service.deleteFile(productToUpdate.imageUrl);
         } catch (error) {
           this.logger.warn(
             `Failed to delete old product picture: ${error.message}`,
@@ -283,16 +360,93 @@ export class ProductService {
       }
       fileUrl = await this.awsS3Service.uploadFile(file, 'product');
     }
+    productToUpdate.imageUrl = fileUrl;
 
-    const updatedProductEntity = ProductRequestMapper.updateEntityFromDto(
-      product,
-      request,
-    );
-    updatedProductEntity.imageUrl = fileUrl;
+    productToUpdate.name = request.name ?? productToUpdate.name;
+    productToUpdate.description =
+      request.description ?? productToUpdate.description;
+
+    if (request.categoryId) {
+      productToUpdate.category = { id: request.categoryId } as Category;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(request, 'subcategoryId')) {
+      productToUpdate.subcategory = request.subcategoryId
+        ? ({ id: request.subcategoryId } as Category)
+        : null;
+    }
+
+    if (request.productDetail) {
+      productToUpdate.productDetail = request.productDetail.map((detailDto) =>
+        ProductDetailRequestMapper.dtoToEntity(detailDto),
+      );
+    }
+
+    if (Object.prototype.hasOwnProperty.call(request, 'tags')) {
+      const resolvedTags: Tags[] = [];
+      if (request.tags && request.tags.length > 0) {
+        for (const tagDto of request.tags) {
+          let tagEntity = await this.tagsRepository.findOneBy({
+            name: tagDto.name,
+          });
+          if (!tagEntity) {
+            tagEntity = this.tagsRepository.create({ name: tagDto.name });
+          }
+          resolvedTags.push(tagEntity);
+        }
+      }
+      productToUpdate.tags = resolvedTags;
+    }
 
     try {
-      const savedProduct =
-        await this.productRepository.save(updatedProductEntity);
+      const savedProduct = await this.productRepository.save(productToUpdate);
+
+      if (savedProduct.tags && savedProduct.tags.length > 0) {
+        const productTags = savedProduct.tags;
+
+        if (effectiveCategoryId) {
+          const category = await this.categoryRepository.findOne({
+            where: { id: effectiveCategoryId },
+            relations: ['tags'],
+          });
+          if (category) {
+            const categoryTagIds = new Set(category.tags.map((t) => t.id));
+            let categoryTagsUpdated = false;
+            for (const productTag of productTags) {
+              if (productTag.id && !categoryTagIds.has(productTag.id)) {
+                category.tags.push(productTag);
+                categoryTagsUpdated = true;
+              }
+            }
+            if (categoryTagsUpdated) {
+              await this.categoryRepository.save(category);
+            }
+          }
+        }
+
+        if (effectiveSubcategoryId) {
+          const subcategory = await this.categoryRepository.findOne({
+            where: { id: effectiveSubcategoryId },
+            relations: ['tags'],
+          });
+          if (subcategory) {
+            const subCategoryTagIds = new Set(
+              subcategory.tags.map((t) => t.id),
+            );
+            let subCategoryTagsUpdated = false;
+            for (const productTag of productTags) {
+              if (productTag.id && !subCategoryTagIds.has(productTag.id)) {
+                subcategory.tags.push(productTag);
+                subCategoryTagsUpdated = true;
+              }
+            }
+            if (subCategoryTagsUpdated) {
+              await this.categoryRepository.save(subcategory);
+            }
+          }
+        }
+      }
+
       const fullProduct = await this.findProductByIdWithRelations(
         savedProduct.id,
       );
@@ -335,7 +489,7 @@ export class ProductService {
   ): Promise<Product | null> {
     return this.productRepository.findOne({
       where: { id },
-      relations: ['category', 'subcategory', 'productDetail'],
+      relations: ['category', 'subcategory', 'productDetail', 'tags'],
     });
   }
 }

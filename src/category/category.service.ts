@@ -64,12 +64,13 @@ export class CategoryService {
   async findAll(): Promise<CategoryResponseDto[]> {
     try {
       const categories = await this.categoryRepository.find({
-        where: { parent: { id: IsNull() } }, // Only top-level categories
+        where: { parent: { id: IsNull() } },
         relations: [
           'children',
           'children.children',
           'children.children.children',
           'parent',
+          'tags',
         ],
       });
       return categories.map((category) =>
